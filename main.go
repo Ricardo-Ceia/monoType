@@ -5,15 +5,32 @@ import (
 	"fmt"
 	"io"
 	"log"
+	"math/rand"
 	"os"
 	"strings"
+	"time"
 )
 
-/*
-func randonmizeQoutes(text string, seed int) {
-
+func getAllWords(text string) []string {
+	return strings.Split(text, " ")
 }
-*/
+
+func randomizeQuotes(words []string, maxIdx int, seed int64) string {
+	r := rand.New(rand.NewSource(seed))
+	nums := make([]int, maxIdx)
+	for i := range nums {
+		nums[i] = i
+	}
+	r.Shuffle(len(nums), func(i, j int) {
+		nums[i], nums[j] = nums[j], nums[i]
+	})
+
+	var result strings.Builder
+	for _, n := range nums {
+		result.WriteString(words[n] + " ")
+	}
+	return strings.TrimSpace(result.String())
+}
 
 func readTextFromFile(filepath string) string {
 	file, err := os.Open(filepath)
@@ -45,7 +62,11 @@ func readTextFromFile(filepath string) string {
 }
 
 func main() {
+	seed := time.Now().UnixNano()
+
 	filepath := "qoutes.txt"
 	text := readTextFromFile(filepath)
-	fmt.Println(text)
+	allWords := getAllWords(text)
+	randomizedQoutes := randomizeQuotes(allWords, 20, seed)
+	fmt.Println(randomizedQoutes)
 }
