@@ -2,7 +2,8 @@ package main
 
 import (
 	"bufio"
-	"fmt"
+	"github.com/charmbracelet/bubbles/textarea"
+	tea "github.com/charmbracelet/bubbletea"
 	"io"
 	"log"
 	"math/rand"
@@ -10,6 +11,49 @@ import (
 	"strings"
 	"time"
 )
+
+type model struct {
+	textarea textarea.Model
+	text     string
+	cursor   int
+}
+
+func initialModel() model {
+	ta := textarea.New()
+	ta.Focus()
+
+	return model{
+		textarea: ta,
+		text:     randomizeQuotes(getAllWords(readTextFromFile("qoutes.txt")), 30, time.Now().UnixNano()),
+		cursor:   0,
+	}
+}
+
+func (m model) Init() tea.Cmd {
+	return textarea.Blink
+}
+
+func (m model) View() string {
+	return m.textarea.View()
+}
+
+func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
+	switch msg := msg.(type) {
+	case tea.KeyMsg:
+		switch msg.String() {
+		case "ctrl+c", "q":
+			return m, tea.Quit
+		default:
+			var cmd tea.Cmd
+			m.textarea, cmd = m.textarea.Update(msg)
+			return m, cmd
+		}
+	default:
+		var cmd tea.Cmd
+		m.textarea, cmd = m.textarea.Update(msg)
+		return m, cmd
+	}
+}
 
 func getAllWords(text string) []string {
 	return strings.Split(text, " ")
@@ -54,7 +98,7 @@ func readTextFromFile(filepath string) string {
 			log.Panic(err)
 		}
 	}
-	//remove the \n char at the end of the text
+	// remove the \n char at the end of the text
 	text := builder.String()
 	text = strings.TrimSuffix(text, "\n")
 
@@ -62,11 +106,9 @@ func readTextFromFile(filepath string) string {
 }
 
 func main() {
-	seed := time.Now().UnixNano()
+	p := tea.NewProgram(initialModel())
 
-	filepath := "qoutes.txt"
-	text := readTextFromFile(filepath)
-	allWords := getAllWords(text)
-	randomizedQoutes := randomizeQuotes(allWords, 20, seed)
-	fmt.Println(randomizedQoutes)
+	if _, err := p.Run(); err != nil {
+		log.Fatal(err)
+	}
 }
