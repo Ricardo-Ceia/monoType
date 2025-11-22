@@ -7,13 +7,14 @@ import (
 	"math/rand"
 	"os"
 	"strings"
+	"time"
 )
 
-func GetAllWords(text string) []string {
+func getAllWords(text string) []string {
 	return strings.Split(text, " ")
 }
 
-func RandomizeQuotes(words []string, maxIdx int, seed int64) string {
+func randomizeQuotes(words []string, maxIdx int, seed int64) string {
 	r := rand.New(rand.NewSource(seed))
 	nums := make([]int, maxIdx)
 	for i := range nums {
@@ -30,7 +31,7 @@ func RandomizeQuotes(words []string, maxIdx int, seed int64) string {
 	return strings.TrimSpace(result.String())
 }
 
-func ReadTextFromFile(filepath string) string {
+func readTextFromFile(filepath string) string {
 	file, err := os.Open(filepath)
 	if err != nil {
 		log.Panic(err)
@@ -57,4 +58,11 @@ func ReadTextFromFile(filepath string) string {
 	text = strings.TrimSuffix(text, "\n")
 
 	return text
+}
+
+func TyppingText(maxIdx int) string {
+	textData := readTextFromFile("quotes.txt")
+	wordsFromText := getAllWords(textData)
+	randomizedQuotes := randomizeQuotes(wordsFromText, maxIdx, time.Now().UnixNano())
+	return randomizedQuotes
 }

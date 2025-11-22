@@ -7,7 +7,6 @@ import (
 	tea "github.com/charmbracelet/bubbletea"
 	"log"
 	"strings"
-	"time"
 )
 
 type model struct {
@@ -20,7 +19,7 @@ type model struct {
 
 func initialModel() model {
 	return model{
-		targetText:   quotes.RandomizeQuotes(quotes.GetAllWords(quotes.ReadTextFromFile("quotes.txt")), 30, time.Now().UnixNano()),
+		targetText:   quotes.TyppingText(30),
 		typedText:    "",
 		cursor:       0,
 		correctChars: 0,
