@@ -101,7 +101,8 @@ func (m model) handleMenuInput(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 			m.selectedMenu++
 		}
 	case tea.KeyLeft, tea.KeyRight:
-		if m.selectedMenu == 0 {
+		switch m.selectedMenu {
+		case 0:
 			if msg.Type == tea.KeyLeft {
 				if m.fontSize > 1 {
 					m.fontSize--
@@ -109,7 +110,7 @@ func (m model) handleMenuInput(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 			} else {
 				m.fontSize++
 			}
-		} else if m.selectedMenu == 1 {
+		case 1:
 			if msg.Type == tea.KeyLeft {
 				if m.timeLimit > 10 {
 					m.timeLimit -= 10
