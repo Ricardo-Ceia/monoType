@@ -16,7 +16,6 @@ type model struct {
 	selectedMenu int
 	timeLimit    int
 	cursor       int
-	fontSize     int
 	correctChars int
 	correctWords int
 }
@@ -29,7 +28,6 @@ func initialModel() model {
 		selectedMenu: 0,
 		timeLimit:    30,
 		cursor:       0,
-		fontSize:     1,
 		correctChars: 0,
 		correctWords: 0,
 	}
@@ -104,14 +102,6 @@ func (m model) handleMenuInput(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		switch m.selectedMenu {
 		case 0:
 			if msg.Type == tea.KeyLeft {
-				if m.fontSize > 1 {
-					m.fontSize--
-				}
-			} else {
-				m.fontSize++
-			}
-		case 1:
-			if msg.Type == tea.KeyLeft {
 				if m.timeLimit > 10 {
 					m.timeLimit -= 10
 				}
@@ -120,7 +110,7 @@ func (m model) handleMenuInput(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 			}
 		}
 	case tea.KeyEnter:
-		if m.selectedMenu == 2 {
+		if m.selectedMenu == 1 {
 			m.mode = "typping"
 			m.targetText = quotes.TyppingText(30)
 		}
@@ -135,6 +125,7 @@ func (m model) View() string {
 	}
 
 	var display strings.Builder
+
 	for i, ch := range m.targetText {
 		if i < len(m.typedText) {
 			if rune(m.targetText[i]) == rune(m.typedText[i]) {
@@ -158,16 +149,11 @@ func (m model) viewMenu() string {
 	display.WriteString("Settings and Stats:\n\n")
 
 	if m.selectedMenu == 0 {
-		display.WriteString(fmt.Sprintf("> Font size: %d (← →)\n", m.fontSize))
-	} else {
-		display.WriteString(fmt.Sprintf("  Font size: %d (← →)\n", m.fontSize))
-	}
-	if m.selectedMenu == 1 {
 		display.WriteString(fmt.Sprintf("> Time limit: %d seconds (← →)\n", m.timeLimit))
 	} else {
 		display.WriteString(fmt.Sprintf("  Time limit: %d seconds (← →)\n", m.timeLimit))
 	}
-	if m.selectedMenu == 2 {
+	if m.selectedMenu == 1 {
 		display.WriteString("> Exit Menu\n")
 	} else {
 		display.WriteString("  Exit Menu\n")
