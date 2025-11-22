@@ -2,6 +2,7 @@ package main
 
 import (
 	"bufio"
+	"fmt"
 	"github.com/charmbracelet/bubbles/textarea"
 	tea "github.com/charmbracelet/bubbletea"
 	"io"
@@ -13,19 +14,20 @@ import (
 )
 
 type model struct {
-	textarea textarea.Model
-	text     string
-	cursor   int
+	targetText   string
+	typedText    string
+	cursor       int
+	correctChars int
+	correctWords int
 }
 
 func initialModel() model {
-	ta := textarea.New()
-	ta.Focus()
-
 	return model{
-		textarea: ta,
-		text:     randomizeQuotes(getAllWords(readTextFromFile("qoutes.txt")), 30, time.Now().UnixNano()),
-		cursor:   0,
+		targetText:   randomizeQuotes(getAllWords(readTextFromFile("quotes.txt")), 30, time.Now().UnixNano()),
+		typedText:    "",
+		cursor:       0,
+		correctChars: 0,
+		correctWords: 0,
 	}
 }
 
@@ -33,26 +35,58 @@ func (m model) Init() tea.Cmd {
 	return textarea.Blink
 }
 
-func (m model) View() string {
-	return m.textarea.View()
-}
-
 func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
 	case tea.KeyMsg:
-		switch msg.String() {
-		case "ctrl+c", "q":
+		switch msg.Type {
+		case tea.KeyCtrlC:
 			return m, tea.Quit
-		default:
-			var cmd tea.Cmd
-			m.textarea, cmd = m.textarea.Update(msg)
-			return m, cmd
+		case tea.KeyBackspace:
+			if m.cursor > 0 {
+				m.typedText = m.typedText[:len(m.typedText)-1]
+				m.cursor--
+			}
+		case tea.KeySpace:
+			m.typedText += " "
+			m.cursor++
+			if m.cursor <= len(m.targetText) {
+				if m.targetText[m.cursor-1] == ' ' {
+					m.correctChars++
+				}
+			}
+		case tea.KeyRunes:
+			for _, r := range msg.Runes {
+				m.typedText += string(r)
+				m.cursor++
+				if m.cursor <= len(m.targetText) {
+					if string(m.targetText[m.cursor-1]) == string(r) {
+						m.correctChars++
+					}
+				}
+			}
 		}
-	default:
-		var cmd tea.Cmd
-		m.textarea, cmd = m.textarea.Update(msg)
-		return m, cmd
 	}
+	return m, nil
+}
+
+func (m model) View() string {
+	var display strings.Builder
+	for i, ch := range m.targetText {
+		if i < len(m.typedText) {
+			if rune(m.targetText[i]) == rune(m.typedText[i]) {
+				display.WriteString(fmt.Sprintf("\033[32m%c\033[0m", ch)) // Green for correct
+			} else {
+				display.WriteString(fmt.Sprintf("\033[31m%c\033[0m", ch)) // Red for wrong
+			}
+		} else if i == len(m.typedText) {
+			display.WriteString(fmt.Sprintf("\033[1m\033[4m%c\033[0m", ch)) // Bold + underline cursor
+		} else {
+			display.WriteRune(ch)
+		}
+	}
+	stats := fmt.Sprintf("\n\nTyped: %d/%d | Correct: %d",
+		len(m.typedText), len(m.targetText), m.correctChars)
+	return display.String() + stats
 }
 
 func getAllWords(text string) []string {
