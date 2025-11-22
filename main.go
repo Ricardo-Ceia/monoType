@@ -7,6 +7,7 @@ import (
 	tea "github.com/charmbracelet/bubbletea"
 	"log"
 	"strings"
+	"time"
 )
 
 type model struct {
@@ -15,6 +16,7 @@ type model struct {
 	typedText    string
 	selectedMenu int
 	timeLimit    int
+	startTime    time.Time
 	cursor       int
 	correctChars int
 	correctWords int
@@ -27,6 +29,7 @@ func initialModel() model {
 		typedText:    "",
 		selectedMenu: 0,
 		timeLimit:    30,
+		startTime:    time.Time{},
 		cursor:       0,
 		correctChars: 0,
 		correctWords: 0,
@@ -34,7 +37,18 @@ func initialModel() model {
 }
 
 func (m model) Init() tea.Cmd {
-	return textarea.Blink
+	return tea.Batch(
+		textarea.Blink,
+		tickCmd(),
+	)
+}
+
+type tickMsg struct{}
+
+func tickCmd() tea.Cmd {
+	return tea.Tick(time.Second, func(t time.Time) tea.Msg {
+		return tickMsg{}
+	})
 }
 
 func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
@@ -45,6 +59,9 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		} else {
 			return m.handleTypingInput(msg)
 		}
+	case tickMsg:
+		//TODO: stop ticker when it reachs zero
+		return m, tickCmd()
 	}
 	return m, nil
 }
@@ -73,6 +90,9 @@ func (m model) handleTypingInput(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		m.cursor = 0
 		m.correctChars = 0
 	case tea.KeyRunes:
+		if m.startTime.IsZero() {
+			m.startTime = time.Now()
+		}
 		for _, r := range msg.Runes {
 			m.typedText += string(r)
 			m.cursor++
@@ -139,8 +159,8 @@ func (m model) View() string {
 			display.WriteRune(ch)
 		}
 	}
-	stats := fmt.Sprintf("\n\nTyped: %d/%d | Correct: %d",
-		len(m.typedText), len(m.targetText), m.correctChars)
+	stats := fmt.Sprintf("\n\nTimer:%s Typed: %d/%d | Correct: %d",
+		m.viewTimer(), len(m.typedText), len(m.targetText), m.correctChars)
 	return display.String() + stats
 }
 
@@ -161,6 +181,21 @@ func (m model) viewMenu() string {
 
 	display.WriteString("\n(↑/↓ to navigate, ← → to change settings, Enter to select, Ctrl+C to quit)\n")
 	return display.String()
+}
+
+func (m model) viewTimer() string {
+	if m.startTime.IsZero() {
+		return fmt.Sprintf("TIME: %02d:00", m.timeLimit)
+	}
+
+	elapsed := time.Since(m.startTime)
+	remaining := m.timeLimit - int(elapsed.Seconds())
+
+	if remaining < 0 {
+		remaining = 0
+	}
+
+	return fmt.Sprintf("TIME: %02d:%02d", remaining/60, remaining%60)
 }
 
 func main() {
