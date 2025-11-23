@@ -60,7 +60,13 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return m.handleTypingInput(msg)
 		}
 	case tickMsg:
-		//TODO: stop ticker when it reachs zero
+		if m.mode == "typping" && !m.startTime.IsZero() {
+			deadline := m.startTime.Add(time.Duration(m.timeLimit) * time.Second)
+			if time.Now().After(deadline) {
+				m.startTime = time.Time{}
+				return m, nil
+			}
+		}
 		return m, tickCmd()
 	}
 	return m, nil
@@ -89,6 +95,7 @@ func (m model) handleTypingInput(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		m.typedText = ""
 		m.cursor = 0
 		m.correctChars = 0
+		m.startTime = time.Time{}
 	case tea.KeyRunes:
 		if m.startTime.IsZero() {
 			m.startTime = time.Now()
@@ -185,17 +192,17 @@ func (m model) viewMenu() string {
 
 func (m model) viewTimer() string {
 	if m.startTime.IsZero() {
-		return fmt.Sprintf("TIME: %02d:00", m.timeLimit)
+		return fmt.Sprintf("TIME: 00:%d", m.timeLimit)
 	}
 
-	elapsed := time.Since(m.startTime)
-	remaining := m.timeLimit - int(elapsed.Seconds())
+	deadline := m.startTime.Add(time.Duration(m.timeLimit) * time.Second)
+	remaining := time.Until(deadline)
 
 	if remaining < 0 {
 		remaining = 0
 	}
-
-	return fmt.Sprintf("TIME: %02d:%02d", remaining/60, remaining%60)
+	secondsLeft := int(remaining.Seconds())
+	return fmt.Sprintf("TIME: %02d:%02d", secondsLeft/60, secondsLeft%60)
 }
 
 func main() {
