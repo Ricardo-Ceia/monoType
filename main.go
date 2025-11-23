@@ -149,8 +149,13 @@ func (m model) View() string {
 
 	if m.mode == "menu" {
 		return m.viewMenu()
+	} else {
+		return m.viewTypper()
 	}
 
+}
+
+func (m model) viewTypper() string {
 	var display strings.Builder
 
 	for i, ch := range m.targetText {
