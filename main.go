@@ -192,7 +192,7 @@ func (m model) viewMenu() string {
 
 func (m model) viewTimer() string {
 	if m.startTime.IsZero() {
-		return fmt.Sprintf("TIME: 00:%d", m.timeLimit)
+		return fmt.Sprintf("TIME: %02d:%02d", m.timeLimit/60, m.timeLimit%60)
 	}
 
 	deadline := m.startTime.Add(time.Duration(m.timeLimit) * time.Second)
