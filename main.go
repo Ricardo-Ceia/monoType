@@ -56,13 +56,19 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case tea.KeyMsg:
 		if m.mode == "menu" {
 			return m.handleMenuInput(msg)
-		} else {
+		} else if m.mode == "typping" {
 			return m.handleTypingInput(msg)
+		} else {
+			return m.handleStatsInput(msg)
 		}
 	case tickMsg:
 		if m.mode == "typping" && !m.startTime.IsZero() {
 			deadline := m.startTime.Add(time.Duration(m.timeLimit) * time.Second)
 			if time.Now().After(deadline) {
+				m.mode = "stats"
+				m.typedText = ""
+				m.cursor = 0
+				m.correctChars = 0
 				m.startTime = time.Time{}
 				return m, nil
 			}
@@ -140,7 +146,27 @@ func (m model) handleMenuInput(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		if m.selectedMenu == 1 {
 			m.mode = "typping"
 			m.targetText = quotes.TyppingText(30)
+			return m, tickCmd()
 		}
+	}
+	return m, nil
+}
+
+func (m model) handleStatsInput(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
+	switch msg.Type {
+	case tea.KeyCtrlC:
+		return m, tea.Quit
+	case tea.KeyEsc:
+		m.mode = "menu"
+		m.selectedMenu = 0
+		m.typedText = ""
+		m.cursor = 0
+		m.correctChars = 0
+		m.startTime = time.Time{}
+	case tea.KeyCtrlR:
+		m.mode = "typping"
+		m.targetText = quotes.TyppingText(30)
+		return m, tickCmd()
 	}
 	return m, nil
 }
@@ -149,8 +175,10 @@ func (m model) View() string {
 
 	if m.mode == "menu" {
 		return m.viewMenu()
-	} else {
+	} else if m.mode == "typping" {
 		return m.viewTypper()
+	} else {
+		return m.viewStats()
 	}
 
 }
@@ -208,6 +236,10 @@ func (m model) viewTimer() string {
 	}
 	secondsLeft := int(remaining.Seconds())
 	return fmt.Sprintf("TIME: %02d:%02d", secondsLeft/60, secondsLeft%60)
+}
+
+func (m model) viewStats() string {
+	return "-----stats page-----"
 }
 
 func main() {
