@@ -20,6 +20,8 @@ type model struct {
 	cursor       int
 	correctChars int
 	correctWords int
+	width				 int
+	height 			 int
 }
 
 func initialModel() model {
@@ -33,6 +35,8 @@ func initialModel() model {
 		cursor:       0,
 		correctChars: 0,
 		correctWords: 0,
+		width:				80,
+		height:				24,
 	}
 }
 
@@ -53,6 +57,9 @@ func tickCmd() tea.Cmd {
 
 func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
+	case tea.WindowSizeMsg:
+		m.width = msg.Width
+		m.height = msg.Height
 	case tea.KeyMsg:
 		if m.mode == "menu" {
 			return m.handleMenuInput(msg)
@@ -186,7 +193,32 @@ func (m model) View() string {
 func (m model) viewTypper() string {
 	var display strings.Builder
 
-	for i, ch := range m.targetText {
+	viewportWidth := m.width - 10
+	
+	if viewportWidth < 40{
+		viewportWidth = 40 
+	}
+
+	viewportStart := m.cursor -viewportWidth/2
+	
+	if viewportStart < 0{
+		viewportStart = 0
+	}
+	
+	viewportEnd := viewportStart+viewportWidth
+
+	if viewportEnd > len(m.targetText) {
+		viewportEnd = len(m.targetText)
+		if viewportEnd-viewportStart < viewportWidth {
+			viewportStart = viewportEnd - viewportWidth
+			if viewportStart < 0 {
+				viewportStart = 0
+			}
+		}
+	}
+
+  for i := viewportStart; i < viewportEnd; i++ {
+		ch := rune(m.targetText[i])
 		if i < len(m.typedText) {
 			if rune(m.targetText[i]) == rune(m.typedText[i]) {
 				display.WriteString(fmt.Sprintf("\033[32m%c\033[0m", ch)) // Green for correct
@@ -199,6 +231,7 @@ func (m model) viewTypper() string {
 			display.WriteRune(ch)
 		}
 	}
+
 	stats := fmt.Sprintf("\n\nTimer:%s Typed: %d/%d | Correct: %d",
 		m.viewTimer(), len(m.typedText), len(m.targetText), m.correctChars)
 	return display.String() + stats
