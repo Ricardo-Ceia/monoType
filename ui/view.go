@@ -4,6 +4,8 @@ import (
 	"fmt"
 	"strings"
 	"time"
+
+	"github.com/charmbracelet/lipgloss"
 )
 
 func (m Model) View() string {
@@ -98,5 +100,210 @@ func (m Model) viewTimer() string {
 }
 
 func (m Model) viewStats() string {
-	return "-----stats page-----"
+	mutedColor := lipgloss.Color("#6B7280")
+
+	wpm := 0.0
+	if m.TimeLimit > 0 {
+		wpm = float64(m.CorrectChars) / 5.0 / (float64(m.TimeLimit) / 60.0)
+	}
+
+	accuracy := 0.0
+	totalTyped := m.CorrectChars + m.IncorrectChars
+	if totalTyped > 0 {
+		accuracy = float64(m.CorrectChars) / float64(totalTyped) * 100
+	}
+
+	consistency := 0.0
+	if len(m.WPMHistory) > 1 {
+		var sum float64
+		for _, s := range m.WPMHistory {
+			sum += s.WPM
+		}
+		mean := sum / float64(len(m.WPMHistory))
+		var sumSquares float64
+		for _, s := range m.WPMHistory {
+			sumSquares += (s.WPM - mean) * (s.WPM - mean)
+		}
+		variance := sumSquares / float64(len(m.WPMHistory))
+		// Newton's method for square root
+		stdDev := 0.0
+		if variance > 0 {
+			stdDev = variance
+			for i := 0; i < 10; i++ {
+				stdDev = (stdDev + variance/stdDev) / 2
+			}
+		}
+		if mean > 0 {
+			// Coefficient of variation as percentage
+			cv := (stdDev / mean) * 100
+			consistency = 100 - cv
+			if consistency < 0 {
+				consistency = 0
+			}
+		}
+	}
+
+	dimStyle := lipgloss.NewStyle().Foreground(mutedColor)
+
+	statsLine := fmt.Sprintf("wpm %.0f  |  acc %.1f%%  |  con %.1f%%", wpm, accuracy, consistency)
+
+	graphWidth := m.Width - 10
+	if graphWidth < 30 {
+		graphWidth = 30
+	}
+	if graphWidth > 60 {
+		graphWidth = 60
+	}
+	graphHeight := m.Height - 10
+	if graphHeight < 5 {
+		graphHeight = 5
+	}
+	if graphHeight > 12 {
+		graphHeight = 12
+	}
+
+	var graphContent strings.Builder
+	graphContent.WriteString("WPM\n")
+
+	if len(m.WPMHistory) > 0 {
+		maxWPM := 0.0
+		for _, s := range m.WPMHistory {
+			if s.WPM > maxWPM {
+				maxWPM = s.WPM
+			}
+		}
+		if maxWPM < 10 {
+			maxWPM = 10
+		}
+		maxWPM = float64(int(maxWPM/10)+1) * 10
+
+		ySteps := 4
+		if graphHeight < 8 {
+			ySteps = 2
+		}
+
+		xSteps := 4
+		if graphWidth < 40 {
+			xSteps = 2
+		}
+
+		pointRows := make([]int, graphWidth)
+		maxTime := float64(m.TimeLimit)
+		for col := 0; col < graphWidth; col++ {
+			// Map column to time value (0 to TimeLimit)
+			t := (float64(col) / float64(graphWidth-1)) * maxTime
+			
+			var wpmVal float64
+			if len(m.WPMHistory) == 1 {
+				wpmVal = m.WPMHistory[0].WPM
+			} else {
+				var prev, next WPMSample
+				foundPrev := false
+				for i := len(m.WPMHistory) - 1; i >= 0; i-- {
+					if m.WPMHistory[i].Time <= t {
+						prev = m.WPMHistory[i]
+						foundPrev = true
+						if i+1 < len(m.WPMHistory) {
+							next = m.WPMHistory[i+1]
+						} else {
+							next = prev
+						}
+						break
+					}
+				}
+				if !foundPrev {
+					wpmVal = m.WPMHistory[0].WPM
+				} else if prev.Time == next.Time || next.Time == prev.Time {
+					wpmVal = prev.WPM
+				} else {
+					ratio := (t - prev.Time) / (next.Time - prev.Time)
+					wpmVal = prev.WPM + ratio*(next.WPM-prev.WPM)
+				}
+			}
+			
+			pointRows[col] = int((wpmVal / maxWPM) * float64(graphHeight))
+			if pointRows[col] > graphHeight {
+				pointRows[col] = graphHeight
+			}
+			if pointRows[col] < 0 {
+				pointRows[col] = 0
+			}
+		}
+
+		for row := graphHeight; row >= 1; row-- {
+			yVal := (float64(row) / float64(graphHeight)) * maxWPM
+			showLabel := false
+			for step := 0; step <= ySteps; step++ {
+				stepRow := (step * graphHeight) / ySteps
+				if stepRow == 0 {
+					stepRow = 1
+				}
+				if row == stepRow || row == graphHeight {
+					showLabel = true
+					break
+				}
+			}
+			if showLabel {
+				graphContent.WriteString(dimStyle.Render(fmt.Sprintf("%3.0f│", yVal)))
+			} else {
+				graphContent.WriteString(dimStyle.Render("   │"))
+			}
+
+			for col := 0; col < graphWidth; col++ {
+				pointRow := pointRows[col]
+				if pointRow == row-1 {
+					graphContent.WriteString("•")
+				} else if col > 0 {
+					prevRow := pointRows[col-1]
+					currRow := pointRows[col]
+					minR, maxR := prevRow, currRow
+					if minR > maxR {
+						minR, maxR = maxR, minR
+					}
+					if row-1 >= minR && row-1 <= maxR {
+						graphContent.WriteString("•")
+					} else {
+						graphContent.WriteString(" ")
+					}
+				} else {
+					graphContent.WriteString(" ")
+				}
+			}
+			graphContent.WriteString("\n")
+		}
+
+		graphContent.WriteString(dimStyle.Render("   └" + strings.Repeat("─", graphWidth) + "\n"))
+
+		xAxisLine := strings.Repeat(" ", graphWidth+4)
+		xAxisRunes := []rune(xAxisLine)
+		for step := 0; step <= xSteps; step++ {
+			pos := (step * (graphWidth - 1)) / xSteps
+			timeVal := (step * m.TimeLimit) / xSteps
+			label := fmt.Sprintf("%d", timeVal)
+			startPos := pos + 4
+			if step == 0 {
+				startPos = 4			}
+			for j, ch := range label {
+				if startPos+j < len(xAxisRunes) {
+					xAxisRunes[startPos+j] = ch
+				}
+			}
+		}
+		graphContent.WriteString(dimStyle.Render(string(xAxisRunes) + "s"))
+	} else {
+		graphContent.WriteString(dimStyle.Render("  No data"))
+	}
+
+	footer := dimStyle.Render("Ctrl+R retry  |  Esc menu")
+
+	content := lipgloss.JoinVertical(
+		lipgloss.Left,
+		statsLine,
+		"",
+		graphContent.String(),
+		"",
+		footer,
+	)
+
+	return content
 }

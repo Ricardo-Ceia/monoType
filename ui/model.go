@@ -8,33 +8,44 @@ import (
 	tea "github.com/charmbracelet/bubbletea"
 )
 
+type WPMSample struct {
+	Time float64
+	WPM  float64
+}
+
 type Model struct {
-	Mode         string
-	TargetText   string
-	TypedText    string
-	SelectedMenu int
-	TimeLimit    int
-	StartTime    time.Time
-	Cursor       int
-	CorrectChars int
-	CorrectWords int
-	Width        int
-	Height       int
+	Mode           string
+	TargetText     string
+	TypedText      string
+	SelectedMenu   int
+	TimeLimit      int
+	StartTime      time.Time
+	Cursor         int
+	CorrectChars   int
+	IncorrectChars int
+	CorrectWords   int
+	TotalChars     int
+	Width          int
+	Height         int
+	WPMHistory     []WPMSample
 }
 
 func InitialModel() Model {
 	return Model{
-		Mode:         "typping",
-		TargetText:   quotes.TyppingText(30),
-		TypedText:    "",
-		SelectedMenu: 0,
-		TimeLimit:    30,
-		StartTime:    time.Time{},
-		Cursor:       0,
-		CorrectChars: 0,
-		CorrectWords: 0,
-		Width:        80,
-		Height:       24,
+		Mode:           "typping",
+		TargetText:     quotes.TyppingText(30),
+		TypedText:      "",
+		SelectedMenu:   0,
+		TimeLimit:      30,
+		StartTime:      time.Time{},
+		Cursor:         0,
+		CorrectChars:   0,
+		IncorrectChars: 0,
+		CorrectWords:   0,
+		TotalChars:     0,
+		Width:          80,
+		Height:         24,
+		WPMHistory:     []WPMSample{},
 	}
 }
 
